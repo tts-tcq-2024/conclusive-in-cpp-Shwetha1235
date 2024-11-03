@@ -1,3 +1,4 @@
+
 #pragma once
 
 typedef enum {
@@ -30,3 +31,4 @@ void checkAndAlert(
 
 void sendToController(BreachType breachType);
 void sendToEmail(BreachType breachType);
+
