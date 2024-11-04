@@ -1,110 +1,42 @@
 #include <gtest/gtest.h>
-#include "typewise-alertUtils.h"
-#include <string.h>
-#include <assert.h>
+#include "typewise-alert.h"
 
-#define BUFFER_SIZE 2048
-char buffer[BUFFER_SIZE];
-extern BreachType breachTypeMock;
-extern void checkAndAlertMock(AlertTarget alertTarget, BatteryCharacter batteryChar, double temperatureInC);
-extern void sendToControllerMock(BreachType breachType);
-extern  void sendToEmailMock(BreachType breachType);
+TEST(TypeWiseAlertTestSuite, InfersBreachAccordingToLimits) {
+    EXPECT_EQ(inferBreach(12, 10, 20), NORMAL);
+    EXPECT_EQ(inferBreach(5, 10, 20), TOO_LOW);
+    EXPECT_EQ(inferBreach(25, 10, 20), TOO_HIGH);
+}
 
-void testprintsendtocontroller() {
+TEST(TypeWiseAlertTestSuite, ClassifiesTemperatureBreach) {
+    EXPECT_EQ(classifyTemperatureBreach(PASSIVE_COOLING, 36), TOO_HIGH);
+    EXPECT_EQ(classifyTemperatureBreach(HI_ACTIVE_COOLING, 46), TOO_HIGH);
+    EXPECT_EQ(classifyTemperatureBreach(MED_ACTIVE_COOLING, 39), NORMAL);
+}
+
+TEST(TypeWiseAlertTestSuite, SendsAlertToController) {
+    testing::internal::CaptureStdout();
+    sendToController(TOO_HIGH);
+    std::string output = testing::internal::GetCapturedStdout();
+    EXPECT_EQ(output, "feed : 2\n");
+}
+
+TEST(TypeWiseAlertTestSuite, SendsAlertToEmail) {
+    testing::internal::CaptureStdout();
+    sendToEmail(TOO_HIGH);
+    std::string output = testing::internal::GetCapturedStdout();
+    EXPECT_EQ(output, "To: a.b@c.com\nHi, the temperature is too high\n");
+}
+
+TEST(TypeWiseAlertTestSuite, CheckAndAlert) {
+    BatteryCharacter batteryChar = {PASSIVE_COOLING, "BrandX"};
     
-    memset(buffer, 0, sizeof(buffer));
-    setvbuf(stdout, buffer, _IOFBF, sizeof(buffer));
-    BreachType breachType = TOO_LOW;
-    sendToControllerMock(breachType);
-    fflush(stdout);
-    const char* expected = "feed : 1";
-    printf("%s",expected);
-    assert(strcmp(buffer, expected) == 0);
+    testing::internal::CaptureStdout();
+    checkAndAlert(TO_CONTROLLER, batteryChar, 36);
+    std::string outputController = testing::internal::GetCapturedStdout();
+    EXPECT_EQ(outputController, "feed : 2\n");
 
-}
-
-void testprintsendtoemail() {
-    
-    memset(buffer, 0, sizeof(buffer));
-    setvbuf(stdout, buffer, _IOFBF, sizeof(buffer));
-    BreachType breachType = TOO_HIGH;
-    sendToEmailMock(breachType);
-    fflush(stdout);
-    const char* expected =
-    "To: a.b@c.com\n"
-    "Hi, the temperature is too high\n";
-    printf("%s",expected);
-    assert(strcmp(buffer, expected) == 0);
-    
-    memset(buffer, 0, sizeof(buffer));
-    setvbuf(stdout, buffer, _IOFBF, sizeof(buffer));
-    breachType = TOO_LOW;
-    sendToEmailMock(breachType);
-    fflush(stdout);
-   expected = 
-    "To: a.b@c.com\n"
-    "Hi, the temperature is too low\n";
-    printf("%s",expected);
-    assert(strcmp(buffer, expected)==0);
-
-    memset(buffer, 0, sizeof(buffer));
-    sendToEmailMock(NORMAL);
-    expected = "";
-    assert(strcmp(buffer, expected) == 0);
-}
-
-TEST(TypeWiseAlertTestSuite, test_alert_low_breach_to_controller) {
-  BatteryCharacter batteryChar = {PASSIVE_COOLING," "};
-  BreachType expected_breach = TOO_LOW;
-  checkAndAlert(TO_CONTROLLER,batteryChar,-10);
-  checkAndAlertMock(TO_CONTROLLER,batteryChar,-10);
-  ASSERT_EQ(breachTypeMock ,expected_breach);
-}
-
-TEST(TypeWiseAlertTestSuite, test_alert_hi_breach_to_controller) {
-  BatteryCharacter batteryChar = {PASSIVE_COOLING," "};
-  BreachType expected_breach = TOO_HIGH;
-  checkAndAlert(TO_CONTROLLER,batteryChar,50);
-  checkAndAlertMock(TO_CONTROLLER,batteryChar,50);
-  ASSERT_EQ(breachTypeMock ,expected_breach);
-}
-
-TEST(TypeWiseAlertTestSuite, test_alert_normal_to_email) {
-  BatteryCharacter batteryChar = {PASSIVE_COOLING," "};
-  BreachType expected_breach = NORMAL;
-  checkAndAlert(TO_EMAIL,batteryChar,25);
-  checkAndAlertMock(TO_EMAIL,batteryChar,25);
-  ASSERT_EQ(breachTypeMock ,expected_breach);
-}
-
-TEST(TypeWiseAlertTestSuite, test_alert_low_breach_to_email) {
-  BatteryCharacter batteryChar = {HI_ACTIVE_COOLING," "};
-  BreachType expected_breach = TOO_LOW;
-  checkAndAlert(TO_EMAIL,batteryChar,-10);
-  checkAndAlertMock(TO_EMAIL,batteryChar,-10);
-  ASSERT_EQ(breachTypeMock ,expected_breach);
-}
-
-TEST(TypeWiseAlertTestSuite, test_alert_normal_to_controller_hiactivecooling) {
-  BatteryCharacter batteryChar = {HI_ACTIVE_COOLING," "};
-  BreachType expected_breach = NORMAL;
-  checkAndAlert(TO_CONTROLLER,batteryChar,25);
-  checkAndAlertMock(TO_EMAIL,batteryChar,25);
-  ASSERT_EQ(breachTypeMock ,expected_breach);
-}
-
-TEST(TypeWiseAlertTestSuite, test_alert_hi_breach_to_email) {
-  BatteryCharacter batteryChar = {MED_ACTIVE_COOLING," "};
-  BreachType expected_breach = TOO_HIGH;
-  checkAndAlert(TO_EMAIL,batteryChar,50);
-  checkAndAlertMock(TO_EMAIL,batteryChar,50);
-  ASSERT_EQ(breachTypeMock ,expected_breach);
-}
-
-TEST(TypeWiseAlertTestSuite, test_send_to_email) {
-  testprintsendtoemail();
-}
-
-TEST(TypeWiseAlertTestSuite, test_send_to_controller) {
-  testprintsendtocontroller();
+    testing::internal::CaptureStdout();
+    checkAndAlert(TO_EMAIL, batteryChar, -1);
+    std::string outputEmail = testing::internal::GetCapturedStdout();
+    EXPECT_EQ(outputEmail, "To: a.b@c.com\nHi, the temperature is too low\n");
 }
